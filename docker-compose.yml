@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql-local
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Admin123!
+      - MSSQL_PID=Developer
+    volumes:
+      - mssql-data:/var/opt/mssql
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Admin123!" -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+    networks:
+      - my-network
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: my-db-init
+    depends_on:
+      mssql:
+        condition: service_healthy
+    environment:
+      - SA_PASSWORD=Admin123!
+    volumes:
+      - ./sql:/sql:ro
+    command: >
+      bash -c "
+      echo 'Waiting for SQL Server...';
+      sleep 5;
+      echo 'Creating database...';
+      /opt/mssql-tools18/bin/sqlcmd -S mssql -U sa -P 'Admin123!' -C -i /sql/00-create-db.sql;
+      echo 'Seeding data...';
+      /opt/mssql-tools18/bin/sqlcmd -S mssql -U sa -P 'Admin123!' -C -i /sql/01-min-workorder.sql;
+      echo 'Database initialization complete!';
+      "
+    networks:
+      - my-network
+
+volumes:
+  mssql-data:
+
+networks:
+  my-network:
+    driver: bridge
