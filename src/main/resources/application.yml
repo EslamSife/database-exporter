@@ -1,0 +1,207 @@
+# Spring Application Settings
+spring:
+  application:
+    name: database-exporter
+  
+  # Disable web server (this is a CLI application)
+  main:
+    web-application-type: none
+  
+  # Disable JPA auto-configuration
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+# ============================================
+# Database Exporter Configuration
+# ============================================
+exporter:
+  # Database Connection Settings
+  database:
+    host: localhost
+    port: 1433
+    name: MES_Database
+    username: sa
+    password: MesAdmin123!
+    schema: dbo
+    
+    # Connection Pool Settings
+    pool:
+      size: 8
+  
+  # Export Settings
+  export:
+    # Number of rows to export per table
+    row-limit: 200
+    
+    # Output directory for SQL files
+    output-directory: ./exports
+    
+    # Batch size for file writing
+    batch-size: 2000
+    
+    # Generate CREATE TABLE statements
+    generate-create-statements: false
+    
+    # Generate DROP TABLE statements
+    generate-drop-statements: false
+  
+  # Parallel Processing Settings
+  parallel:
+    # Number of parallel threads (0 = auto-detect CPU cores)
+    threads: 8
+    
+    # Enable parallel export
+    enabled: true
+  
+  # Table Filtering Settings
+  filter:
+    # Exclude empty tables (0 rows)
+    exclude-empty-tables: true
+    
+    # Exclude system tables
+    exclude-system-tables: true
+    
+    # Wildcard patterns (* = any characters, ? = single character)
+    exclusion-patterns:
+      - "*_backup"
+      - "*_bk"
+      - "*_history"
+      - "*_archive"
+      - "*_temp"
+      - "*_staging"
+      - "*_audit"
+      - "*_log"
+      - "tmp_*"
+      - "temp_*"
+      - "staging_*"
+      - "archive_*"
+      - "bak_*"
+    
+    # Exact table name matches
+    excluded-tables:
+      - "sysdiagrams"
+      - "dtproperties"
+      - "sysconstraints"
+      - "syssegments"
+      - "syssegments"
+
+    # Regular expressions (Java regex syntax)
+    exclusion-regex:
+      - "^\\$.*"                # Tables starting with $
+      - ".*_\\d{8}$"            # Tables ending with date (e.g., table_20241013)
+      - ".*_\\d{8}_\\d{6}$"     # Tables ending with datetime
+    
+    # Prefix-based exclusion
+    excluded-prefixes:
+      - "sys"
+      - "tmp_"
+      - "temp_"
+      - "__"
+      - "msreplication"
+      - "spt_"
+
+# ============================================
+# Logging Configuration
+# ============================================
+logging:
+  level:
+    root: INFO
+    com.database.export: INFO
+  
+  pattern:
+    console: "[%d{yyyy-MM-dd HH:mm:ss}] [%level] %msg%n"
+    file: "[%d{yyyy-MM-dd HH:mm:ss}] [%thread] [%level] [%logger{36}] %msg%n"
+  
+  file:
+    name: ${exporter.export.output-directory}/logs/export.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+
+# ============================================
+# Profile-Specific Configurations
+# ============================================
+
+---
+# DEVELOPMENT Profile (Local Docker)
+spring:
+  config:
+    activate:
+      on-profile: development
+
+exporter:
+  database:
+    host: localhost
+    port: 1433
+    name: MES_Database
+    username: sa
+    password: MesAdmin123!
+  export:
+    row-limit: 200
+  parallel:
+    threads: 8
+
+---
+# STAGING Profile
+spring:
+  config:
+    activate:
+      on-profile: staging
+
+exporter:
+  database:
+    host: SGDCMESQDB07.aptargroup.loc
+    port: 1433
+    name: LVD_AUTO_TEST_ST
+    username: mes-admin
+    password: Aptar#01
+    schema: dbo
+  export:
+    row-limit: 200
+    output-directory: ./exports/staging
+  parallel:
+    threads: 8
+
+---
+# PRODUCTION Profile
+spring:
+  config:
+    activate:
+      on-profile: production
+
+exporter:
+  database:
+    host: ${DB_HOST:production-server.company.com}
+    port: ${DB_PORT:1433}
+    name: ${DB_NAME:PRODUCTION_DB}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    schema: dbo
+  export:
+    row-limit: 500
+    output-directory: /var/exports/production
+  parallel:
+    threads: 16
+
+---
+# LOCAL Profile (Fast Testing - Minimal Rows)
+spring:
+  config:
+    activate:
+      on-profile: local
+
+exporter:
+  database:
+    host: localhost
+    port: 1433
+    name: MES_Database
+    username: sa
+    password: MesAdmin123!
+  export:
+    row-limit: 50
+    output-directory: ./exports/local
+  parallel:
+    threads: 4
